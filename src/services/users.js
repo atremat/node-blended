@@ -1,69 +1,27 @@
 import createHttpError from 'http-errors';
 import { User } from '../db/User.js';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import { Session } from '../db/Session.js';
+import jwt from 'jsonwebtoken';
+import { env } from '../utils/env.js';
 
-export const registerUser = async (userData) => {
-  const user = await User.findOne({ email: userData.email });
+export const findUserByEmail = (email) => User.findOne({ email });
 
-  if (user) {
-    throw createHttpError(409, 'User with this email already exist!');
-  }
+export const updateUserWithToken = (id) => {
+  const updatedToken = jwt.sign({ id }, env('SECRET'));
 
-  const password = await bcrypt.hash(userData.password, 10);
-
-  return User.create({ ...userData, password });
+  return User.findByIdAndUpdate(id, { token: updatedToken }, { new: true });
 };
 
-export const loginUser = async (userData) => {
-  const user = await User.findOne({ email: userData.email });
+export const createUser = async ({ name, email, password }) => {
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-  if (!user) {
-    throw createHttpError(401, 'Unauthorized');
-  }
-
-  const isEqual = await bcrypt.compare(userData.password, user.password);
-
-  if (!isEqual) {
-    throw createHttpError(401, 'Unauthorized');
-  }
-
-  const userId = user._id;
-
-  await Session.deleteOne({ userId });
-
-  const session = Session.create({
-    userId,
-    accessToken: crypto.randomBytes(30).toString('base64'),
-    refreshToken: crypto.randomBytes(30).toString('base64'),
-    accessTokenValidUntil: Date.now() + 15 * 60 * 1000,
-    refreshTokenValidUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  const newUser = await User.create({
+    name,
+    email,
+    password: hashedPassword,
   });
 
-  return session;
+  return updateUserWithToken(newUser._id);
 };
 
-export const refreshUser = async ({ sessionId, refreshToken }) => {
-  const session = await Session.findOne({ userId: sessionId, refreshToken });
-
-  if (!session) {
-    throw createHttpError(401, 'Session not found');
-  }
-
-  if (Date.now() > session.refreshTokenValidUntil) {
-    throw createHttpError(401, 'Session expired');
-  }
-
-  await Session.deleteOne({ sessionId, refreshToken });
-
-  const newSession = Session.create({
-    userId: session.userId,
-    accessToken: crypto.randomBytes(30).toString('base64'),
-    refreshToken: crypto.randomBytes(30).toString('base64'),
-    accessTokenValidUntil: Date.now() + 15 * 60 * 1000,
-    refreshTokenValidUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
-  });
-
-  return newSession;
-};
+export const deleteToken = (id) => User.findByIdAndUpdate(id, { token: '' });

@@ -4,8 +4,9 @@ import cors from 'cors';
 import { env } from './utils/env.js';
 import { notFoundHandler } from './middlewares/notFoundHandler.js';
 import { errorHandler } from './middlewares/errorHandler.js';
-import productsRouter from './routers/products.js';
+
 import usersRouter from './routers/users.js';
+import contactsRouter from './routers/contacts.js';
 import cookieParser from 'cookie-parser';
 
 const PORT = Number(env('PORT', '3000'));
@@ -17,9 +18,9 @@ export const setupServer = () => {
   app.use(cors());
   app.use(cookieParser());
 
-  app.use('/products', productsRouter);
-
   app.use('/users', usersRouter);
+
+  app.use('/contacts', contactsRouter);
 
   app.use('*', notFoundHandler);
 
